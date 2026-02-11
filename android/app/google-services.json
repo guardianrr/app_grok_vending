@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "497895874766",
+    "project_id": "appgrokvending",
+    "storage_bucket": "appgrokvending.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:497895874766:android:29cdffd4a98297ec0d309f",
+        "android_client_info": {
+          "package_name": "com.example.app_grok_vending"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2mtltUgiFwSHEjtbwe2HnTHlA0gkgBOY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
