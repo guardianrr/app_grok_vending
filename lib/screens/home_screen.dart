@@ -1,181 +1,174 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:app_grok_vending/models/product_model.dart';
-import 'package:app_grok_vending/utils/constants.dart';
-import 'package:app_grok_vending/main.dart';
-import 'package:app_grok_vending/screens/payment_confirmation_screen.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:app_grok_vending/models/product_model.dart'; // assume que tens isto
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Produtos na Máquina'),
+      ),
+      body: StreamBuilder(
+        stream: FirebaseDatabase.instance.ref('products').onValue,
+        builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('Erro: ${snapshot.error}'));
+          }
+
+          if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+            return const Center(child: Text('Sem produtos disponíveis'));
+          }
+
+          final data = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+
+          final List<Product> products = data.entries.map((entry) {
+            final key = entry.key as String;
+            final value = entry.value as Map<dynamic, dynamic>;
+            return Product.fromMap(key, value); // usa o teu método fromMap
+          }).toList();
+
+          return GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.75,
+            ),
+            itemCount: products.length,
+            itemBuilder: (context, index) {
+              final product = products[index];
+              return ProductInfoCard(product: product);
+            },
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  final List<Product> products = [
-    Product(
-      name: 'Garrafa de Água 50cl',
-      price: 0.80,
-      imageUrl: 'assets/images/products/agua_50cl.png',
-    ),
-    Product(
-      name: 'KitKat',
-      price: 1.20,
-      imageUrl: 'assets/images/products/kitkat.png',
-    ),
-    Product(
-      name: 'Sandes Mista',
-      price: 2.50,
-      imageUrl: 'assets/images/products/sandes_mista.png',
-    ),
-    Product(
-      name: 'Ice Tea 33cl',
-      price: 1.50,
-      imageUrl: 'assets/images/products/ice_tea.png',
-    ),
-  ];
+// Card informativo simples (sem ações de compra)
+class ProductInfoCard extends StatelessWidget {
+  final Product product;
 
-  Future<void> _showLogoutDialog() async {
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Terminar Sessão'),
-          content: const Text('Tem a certeza que quer terminar a sua sessão?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false), // Não
-              child: const Text('Não'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true), // Sim
-              child: const Text('Sim', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        );
-      },
-    );
+  const ProductInfoCard({super.key, required this.product});
 
-    if (confirm == true) {
-      await FirebaseAuth.instance.signOut(); // Termina a sessão
+  String _getImagePath(String productId) {
+    final id = productId.toLowerCase();
+
+    if (id.contains('coca') || id.contains('cola')) {
+      return 'assets/images/products/sandes_mista.png';
+    } else if (id.contains('chocolate') || id.contains('kitkat')) {
+      return 'assets/images/products/kitkat.png';
+    } else if (id.contains('agua') || id.contains('água')) {
+      return 'assets/images/products/agua_50cl.png';
+    } else if (id.contains('ice') || id.contains('tea') || id.contains('ice-tea')) {
+      return 'assets/images/products/ice_tea.png';
+    } else {
+      print('Produto sem imagem mapeada: $productId');
+      return 'assets/images/placeholder.png';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context);
+    final bool temStock = product.stock > 0;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Produtos Disponíveis'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Terminar Sessão',
-            onPressed: _showLogoutDialog,
-          ),
-        ],
-      ),
-      body: Column(
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Saldo atual no topo
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            color: AppColors.primary.withOpacity(0.1),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Saldo Atual:', style: TextStyle(fontSize: 18)),
-                Text(
-                  '${appState.balance.toStringAsFixed(2)} €',
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.success),
-                ),
-              ],
+          // Imagem (agora com Expanded correto)
+          Expanded(
+            flex: 4, // dá mais espaço à imagem
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: Image.asset(
+                _getImagePath(product.id),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  print('ERRO IMAGEM - Produto: ${product.id} | Caminho: ${_getImagePath(product.id)} | Erro: $error');
+                  return const Center(
+                    child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+                  );
+                },
+              ),
             ),
           ),
 
-          // Grid de produtos
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(16.0),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.8,
-              ),
-              itemCount: products.length,
-              itemBuilder: (context, index) {
-                final product = products[index];
-                return Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        flex: 5,
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                          child: Image.asset(
-                            product.imageUrl,
-                            fit: BoxFit.contain,
-                            width: double.infinity,
-                            height: double.infinity,
-                            alignment: Alignment.center,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Center(
-                                child: Icon(Icons.broken_image, color: Colors.red, size: 50),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
-                          children: [
-                            Text(
-                              product.name,
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${product.price.toStringAsFixed(2)} €',
-                              style: const TextStyle(fontSize: 18, color: AppColors.primary, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 44,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  appState.selectProduct(product);
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => const PaymentConfirmationScreen()),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  padding: EdgeInsets.zero,
-                                ),
-                                child: const Text('Comprar', style: TextStyle(fontSize: 16)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+          // Conteúdo (reduz padding para evitar overflow)
+          Padding(
+            padding: const EdgeInsets.all(10.0), // era 12, baixei para 10
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.name,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+
+                Text(
+                  '${product.price.toStringAsFixed(2)} €',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.green,
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: 6),
+
+                Row(
+                  children: [
+                    Icon(
+                      temStock ? Icons.check_circle : Icons.cancel,
+                      size: 16,
+                      color: temStock ? Colors.green : Colors.red,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Stock: ${product.stock}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: temStock ? Colors.green[800] : Colors.red[800],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+
+                // Mensagem (reduz font para caber melhor)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: temStock ? Colors.blue[50] : Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    temStock
+                        ? 'Disponível apenas na máquina de vending'
+                        : 'Produto esgotado no momento',
+                    style: TextStyle(
+                      fontSize: 11, // baixei de 12 para 11 para evitar overflow
+                      color: temStock ? Colors.blue[900] : Colors.red[900],
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:glassmorphism/glassmorphism.dart';
 import 'package:app_grok_vending/utils/constants.dart';
-import 'package:app_grok_vending/screens/machine_login_screen.dart'; // Importa a tela intermédia
+import 'package:app_grok_vending/screens/login_instruction_screen.dart';  // <--- ADICIONADO ESTE IMPORT
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,12 +21,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _authUser() async {
     if (!mounted) return;
-
     setState(() {
       _isLoading = true;
       _errorMessage = '';
     });
-
     try {
       if (_isRegister) {
         await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -39,33 +37,15 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text.trim(),
         );
       }
+      print("Login/registo bem sucedido");
 
-      print("Login/registo bem sucedido – a tentar ir para MachineLoginScreen");
+      if (!mounted) return;
 
-      if (!mounted) {
-        print("Widget não montado após login – abortando navegação");
-        return;
-      }
-
-      // Vai para a tela intermédia
-      final bool? machineLoginSuccess = await Navigator.push<bool>(
+      // Vai para a tela de instrução de ligação à máquina
+      Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => const MachineLoginScreen(),
-        ),
-      );
-
-      print("Voltou da MachineLoginScreen: success = $machineLoginSuccess");
-
-      if (!mounted) {
-        print("Widget não montado após MachineLoginScreen – abortando");
-        return;
-      }
-
-      // Independentemente do resultado, vai para a home
-      Navigator.pushReplacementNamed(context, '/home');
-      print("Navegação para /home efetuada");
-
+          MaterialPageRoute(builder: (context) => const LoginInstructionScreen()),
+);
     } on FirebaseAuthException catch (e) {
       print("FirebaseAuthException: ${e.code} - ${e.message}");
       if (mounted) {
@@ -141,15 +121,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            shadows: [
-                              Shadow(blurRadius: 20, color: Colors.cyan),
-                            ],
                           ),
-                          textAlign: TextAlign.center,
                         ),
                       ),
-                      const SizedBox(height: 48),
-
+                      const SizedBox(height: 40),
                       FadeInLeft(
                         duration: const Duration(milliseconds: 1000),
                         child: TextField(
@@ -173,7 +148,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-
                       FadeInRight(
                         duration: const Duration(milliseconds: 1000),
                         child: TextField(
@@ -197,7 +171,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 32),
-
                       if (_isLoading)
                         const CircularProgressIndicator()
                       else
@@ -220,7 +193,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       const SizedBox(height: 24),
-
                       FadeInUp(
                         duration: const Duration(milliseconds: 900),
                         child: TextButton(
@@ -236,7 +208,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-
                       if (_errorMessage.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 24),

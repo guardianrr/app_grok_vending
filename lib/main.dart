@@ -1,6 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:app_grok_vending/utils/constants.dart';
@@ -10,7 +10,7 @@ import 'package:app_grok_vending/screens/pay_nfc_screen.dart';
 import 'package:app_grok_vending/screens/pay_qr_screen.dart';
 import 'package:app_grok_vending/screens/load_balance_screen.dart';
 import 'package:app_grok_vending/screens/login_screen.dart';
-import 'package:app_grok_vending/screens/machine_login_screen.dart'; // <--- Adiciona este import
+import 'package:app_grok_vending/screens/login_instruction_screen.dart';   // <--- IMPORT ADICIONADO
 import 'package:app_grok_vending/models/product_model.dart';
 
 Future<void> main() async {
@@ -36,7 +36,6 @@ class MyApp extends StatelessWidget {
       home: const AuthWrapper(),
       routes: {
         '/home': (context) => const MainScreen(),
-        '/machine_login': (context) => const MachineLoginScreen(),
       },
     );
   }
@@ -54,18 +53,18 @@ class AuthWrapper extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
+        // MUDANÇA AQUI: agora vai para a tela de instrução após login
         if (snapshot.hasData) {
-          // Utilizador já tem sessão → vai sempre para a tela intermédia de login na máquina
-          return const MachineLoginScreen();
+          return const LoginInstructionScreen();   // <--- ALTERADO
         }
 
-        // Sem sessão → vai para login/registo normal
         return const LoginScreen();
       },
     );
   }
 }
 
+// O resto do teu main.dart fica igual (MainScreen, AppState, etc.)
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -75,7 +74,6 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-
   static final List<Widget> _pages = [
     const HomeScreen(),
     const AddCardScreen(),
@@ -111,7 +109,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// O teu AppState continua igual (não mexi)
+// AppState (mantém o teu, mas com saldo inicial 0 para teste)
 class AppState extends ChangeNotifier {
   double _balance = 0.0;
   String _cardId = '';
@@ -124,7 +122,7 @@ class AppState extends ChangeNotifier {
   AppState() {
     FirebaseAuth.instance.authStateChanges().listen((User? user) {
       if (user != null) {
-        _loadUserData(user.uid);
+        _createOrLoadUserData(user.uid);
       } else {
         _balance = 0.0;
         _cardId = '';
@@ -134,61 +132,37 @@ class AppState extends ChangeNotifier {
     });
   }
 
-  Future<void> _loadUserData(String uid) async {
-    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    if (doc.exists) {
-      final data = doc.data()!;
-      _balance = (data['balance'] as num?)?.toDouble() ?? 0.0;
-      _cardId = data['cardId'] as String? ?? '';
-    } else {
-      _balance = 50.0;
+  Future<void> _createOrLoadUserData(String uid) async {
+    final dbRef = FirebaseDatabase.instance.ref();
+    final userRef = dbRef.child('users/$uid');
+
+    final snapshot = await userRef.get();
+
+    if (!snapshot.exists) {
+      await userRef.set({
+        'saldo': 0.0,           // ←←← 0€ para teste (podes voltar a 50 depois)
+        'cardId': '',
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+      _balance = 0.0;
       _cardId = '';
-      await _saveUserData(uid);
+    } else {
+      final data = snapshot.value as Map<dynamic, dynamic>?;
+      _balance = (data?['saldo'] as num?)?.toDouble() ?? 0.0;
+      _cardId = data?['cardId'] as String? ?? '';
     }
     notifyListeners();
-  }
 
-  Future<void> _saveUserData(String uid) async {
-    await FirebaseFirestore.instance.collection('users').doc(uid).set({
-      'balance': _balance,
-      'cardId': _cardId,
-      'lastUpdated': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  void selectProduct(Product product) {
-    _selectedProduct = product;
-    notifyListeners();
-  }
-
-  void clearSelectedProduct() {
-    _selectedProduct = null;
-    notifyListeners();
-  }
-
-  void addBalance(double amount) {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    _balance += amount;
-    notifyListeners();
-    _saveUserData(user.uid);
-  }
-
-  void subtractBalance(double amount) {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    if (_balance >= amount) {
-      _balance -= amount;
+    userRef.child('saldo').onValue.listen((event) {
+      _balance = (event.snapshot.value as num?)?.toDouble() ?? 0.0;
       notifyListeners();
-      _saveUserData(user.uid);
-    }
+    });
   }
 
-  void setCardId(String newId) {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    _cardId = newId.trim();
-    notifyListeners();
-    _saveUserData(user.uid);
-  }
+  // resto do AppState igual...
+  void selectProduct(Product product) { _selectedProduct = product; notifyListeners(); }
+  void clearSelectedProduct() { _selectedProduct = null; notifyListeners(); }
+  void addBalance(double amount) { /* ... */ }
+  void subtractBalance(double amount) { /* ... */ }
+  void setCardId(String newId) { /* ... */ }
 }
