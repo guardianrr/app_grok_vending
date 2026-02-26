@@ -219,21 +219,21 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 8.0),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                const SizedBox(height: 20),
+                const SizedBox(height: 8), // espaço mínimo no topo
 
-                // Logo da tua app (espaço reservado)
+                // Logo da tua app (pequeno, como pediste – só para dar toque final)
                 Image.asset(
                   'assets/images/products/logo_tapngo.png',
-                  height: 80,
+                  height: 60, // tamanho pequeno, não ocupa muito espaço
                   errorBuilder: (context, error, stackTrace) {
-                    return const Icon(Icons.image_not_supported, size: 80, color: Colors.grey);
+                    return const Icon(Icons.image_not_supported, size: 60, color: Colors.grey);
                   },
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16), // espaço reduzido
 
                 // Título
                 Text(
@@ -244,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 8), // espaço mínimo
 
                 // Subtítulo
                 Text(
@@ -257,9 +257,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 32), // espaço reduzido
 
-                // Campo Nome (só no modo registo, aparece em cima do Email)
+                // Campo Nome (só no modo registo)
                 if (_isRegisto)
                   TextField(
                     controller: _nomeController,
@@ -274,7 +274,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-                if (_isRegisto) const SizedBox(height: 20),
+                if (_isRegisto) const SizedBox(height: 16),
 
                 // Campo Email
                 TextField(
@@ -290,7 +290,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     fillColor: Colors.grey[100],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
                 // Campo Palavra-passe
                 TextField(
@@ -323,7 +323,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const Flexible(
                             child: Text(
                               'Lembrar-me',
-                              style: TextStyle(color: Colors.black87),
+                              style: TextStyle(color: Colors.black87, fontSize: 14),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -341,7 +341,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
                 // Botão principal
                 SizedBox(
@@ -363,9 +363,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
-                // Link para mudar modo
+                // Link para mudar modo (encostado ao botão principal)
                 TextButton(
                   onPressed: () {
                     setState(() {
@@ -389,15 +389,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       textAlign: TextAlign.center,
                     ),
                   ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
 
-                const Text(
-                  '- OU -',
-                  style: TextStyle(color: Colors.grey, fontSize: 16),
-                ),
-                const SizedBox(height: 24),
-
-                // Botão Google
+                // Botão Google (encostado ao "Regista-te")
                 GestureDetector(
                   onTap: _isLoading ? null : _iniciarSessaoComGoogle,
                   child: Container(

@@ -44,17 +44,9 @@ class _PayNfcScreenState extends State<PayNfcScreen> {
         _statusMessage = 'Leitura NFC detetada! Pagamento enviado...';
       });
 
-      // Aqui envias os dados para a máquina/DB (ajusta com o teu fluxo real)
-      // Exemplo simples (podes usar Firebase para notificar a máquina):
-      // final user = FirebaseAuth.instance.currentUser;
-      // if (user != null) {
-      //   await FirebaseDatabase.instance.ref('pagamentos/${user.uid}').push().set({
-      //     'valor': totalDoCarrinho, // tens de ter isso no AppState
-      //     'itens': carrinho.map((item) => item.nome).toList(),
-      //     'timestamp': DateTime.now().toIso8601String(),
-      //     'nfcTagData': tag.toString(),
-      //   });
-      // }
+      // Aqui podes processar o que a tag devolve (deixa comentado por agora)
+      // String valorRecebido = tag.id ?? tag.toString(); // exemplo simples
+      // print('Conteúdo da tag: $valorRecebido');
 
       // Mostra sucesso
       ScaffoldMessenger.of(context).showSnackBar(
@@ -69,9 +61,9 @@ class _PayNfcScreenState extends State<PayNfcScreen> {
         _statusMessage = 'Pagamento concluído!';
       });
 
-      // Volta automaticamente para a tela de saldo/produtos após 3 segundos
+      // Volta automaticamente para HomeScreen após 3 segundos
       Future.delayed(const Duration(seconds: 3), () {
-        Navigator.pop(context); // Volta para HomeScreen (saldo/produtos)
+        Navigator.pop(context);
       });
     } catch (e) {
       setState(() {
@@ -88,80 +80,103 @@ class _PayNfcScreenState extends State<PayNfcScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pagamento NFC'),
-        centerTitle: true,
-        backgroundColor: Colors.blue[800],
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.black87, Colors.blueGrey[900]!],
-          ),
-        ),
+      backgroundColor: Colors.white,
+      body: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Ícone NFC grande e estático (sem animação de expansão)
-              const Icon(
-                Icons.nfc,
-                size: 180,
-                color: Colors.cyan,
-              ),
-              const SizedBox(height: 40),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 20),
 
-              // Título principal (centrado e formatado)
-              const Text(
-                'Pagamento NFC Contactless',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-
-              // Instrução clara e bem centrada
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40.0),
-                child: Text(
-                  _isScanning
-                      ? _statusMessage
-                      : 'Encoste o telemóvel ao leitor NFC da máquina para pagar',
+                // Título grande e centrado
+                const Text(
+                  'Pagamento NFC',
                   style: TextStyle(
-                    fontSize: 20,
-                    color: _isScanning ? Colors.cyan : Colors.white70,
-                    height: 1.4,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
                   textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 48),
+                const SizedBox(height: 8),
 
-              // Botão único: Iniciar Pagamento NFC
-              if (!_isScanning)
-                ElevatedButton.icon(
-                  onPressed: _startNfcPayment,
-                  icon: const Icon(Icons.nfc, size: 28),
-                  label: const Text(
-                    'Pagar com NFC',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                // Subtítulo explicativo
+                const Text(
+                  'Paga de forma rápida e segura na máquina TAP&GO',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.cyan[600],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 8,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+
+                // Ícone NFC grande e centrado
+                Icon(
+                  Icons.nfc,
+                  size: 120,
+                  color: _isScanning ? Colors.blue[700] : Colors.grey[800],
+                ),
+                const SizedBox(height: 40),
+
+                // Instrução clara e bem centrada
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Text(
+                    _isScanning
+                        ? _statusMessage
+                        : 'Encoste o telemóvel ao leitor NFC da máquina para pagar',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: _isScanning ? Colors.blue[700] : Colors.black87,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
-            ],
+                const SizedBox(height: 48),
+
+                // Botão grande e azul (igual ao da tua login)
+                if (!_isScanning)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton.icon(
+                      onPressed: _startNfcPayment,
+                      icon: const Icon(Icons.nfc, size: 28),
+                      label: const Text(
+                        'Pagar com NFC',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[700],
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 5,
+                      ),
+                    ),
+                  ),
+
+                // Mensagem de status (bem centrado)
+                if (_statusMessage.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 32),
+                    child: Text(
+                      _statusMessage,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: _statusMessage.contains('concluído') || _statusMessage.contains('sucesso')
+                            ? Colors.green[700]
+                            : Colors.red[700],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
