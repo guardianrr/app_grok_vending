@@ -10,7 +10,7 @@ import 'package:app_grok_vending/screens/pay_nfc_screen.dart';
 import 'package:app_grok_vending/screens/pay_qr_screen.dart';
 import 'package:app_grok_vending/screens/load_balance_screen.dart';
 import 'package:app_grok_vending/screens/login_screen.dart';
-import 'package:app_grok_vending/screens/login_instruction_screen.dart';   // <--- IMPORT ADICIONADO
+import 'package:app_grok_vending/screens/login_instruction_screen.dart';
 import 'package:app_grok_vending/models/product_model.dart';
 
 Future<void> main() async {
@@ -53,9 +53,8 @@ class AuthWrapper extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // MUDANÇA AQUI: agora vai para a tela de instrução após login
         if (snapshot.hasData) {
-          return const LoginInstructionScreen();   // <--- ALTERADO
+          return const LoginInstructionScreen();
         }
 
         return const LoginScreen();
@@ -64,7 +63,6 @@ class AuthWrapper extends StatelessWidget {
   }
 }
 
-// O resto do teu main.dart fica igual (MainScreen, AppState, etc.)
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -109,14 +107,15 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// AppState (mantém o teu, mas com saldo inicial 0 para teste)
 class AppState extends ChangeNotifier {
   double _balance = 0.0;
   String _cardId = '';
+  String _name = 'Utilizador'; // Nome do utilizador (default)
   Product? _selectedProduct;
 
   double get balance => _balance;
   String get cardId => _cardId;
+  String get name => _name; // Getter para o nome (isto resolve o erro!)
   Product? get selectedProduct => _selectedProduct;
 
   AppState() {
@@ -126,6 +125,7 @@ class AppState extends ChangeNotifier {
       } else {
         _balance = 0.0;
         _cardId = '';
+        _name = 'Utilizador';
         _selectedProduct = null;
         notifyListeners();
       }
@@ -140,29 +140,105 @@ class AppState extends ChangeNotifier {
 
     if (!snapshot.exists) {
       await userRef.set({
-        'saldo': 0.0,           // ←←← 0€ para teste (podes voltar a 50 depois)
+        'saldo': 0.0,
         'cardId': '',
+        'name': 'Utilizador', // Nome default ao criar conta
         'createdAt': DateTime.now().toIso8601String(),
       });
       _balance = 0.0;
       _cardId = '';
+      _name = 'Utilizador';
     } else {
       final data = snapshot.value as Map<dynamic, dynamic>?;
       _balance = (data?['saldo'] as num?)?.toDouble() ?? 0.0;
       _cardId = data?['cardId'] as String? ?? '';
+      _name = data?['name'] as String? ?? 'Utilizador';
     }
+
     notifyListeners();
 
+    // Listener em tempo real para saldo
     userRef.child('saldo').onValue.listen((event) {
       _balance = (event.snapshot.value as num?)?.toDouble() ?? 0.0;
       notifyListeners();
+      print("Saldo sincronizado da DB em tempo real: $_balance");
+    });
+
+    // Listener em tempo real para nome
+    userRef.child('name').onValue.listen((event) {
+      _name = event.snapshot.value as String? ?? 'Utilizador';
+      notifyListeners();
+      print("Nome sincronizado da DB: $_name");
     });
   }
 
-  // resto do AppState igual...
-  void selectProduct(Product product) { _selectedProduct = product; notifyListeners(); }
-  void clearSelectedProduct() { _selectedProduct = null; notifyListeners(); }
-  void addBalance(double amount) { /* ... */ }
-  void subtractBalance(double amount) { /* ... */ }
-  void setCardId(String newId) { /* ... */ }
+  void selectProduct(Product product) {
+    _selectedProduct = product;
+    notifyListeners();
+  }
+
+  void clearSelectedProduct() {
+    _selectedProduct = null;
+    notifyListeners();
+  }
+
+  Future<void> addBalance(double amount) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print("Erro: Nenhum utilizador logado ao tentar adicionar saldo");
+      return;
+    }
+
+    _balance += amount;
+    notifyListeners();
+
+    try {
+      await FirebaseDatabase.instance
+          .ref('users/${user.uid}/saldo')
+          .set(_balance);
+      print("Saldo adicionado na DB: $amount | Novo total: $_balance");
+    } catch (e) {
+      print("Erro ao adicionar saldo na DB: $e");
+      _balance -= amount; // Reverte localmente se falhar
+      notifyListeners();
+    }
+  }
+
+  Future<void> subtractBalance(double amount) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    if (_balance >= amount) {
+      _balance -= amount;
+      notifyListeners();
+
+      try {
+        await FirebaseDatabase.instance
+            .ref('users/${user.uid}/saldo')
+            .set(_balance);
+        print("Saldo subtraído na DB: $amount | Novo total: $_balance");
+      } catch (e) {
+        print("Erro ao subtrair saldo na DB: $e");
+        _balance += amount; // Reverte
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> setCardId(String newId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    _cardId = newId.trim();
+    notifyListeners();
+
+    try {
+      await FirebaseDatabase.instance
+          .ref('users/${user.uid}/cardId')
+          .set(_cardId);
+      print("CardId atualizado na DB: $_cardId");
+    } catch (e) {
+      print("Erro ao atualizar cardId na DB: $e");
+    }
+  }
 }

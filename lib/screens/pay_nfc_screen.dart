@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
-import 'package:provider/provider.dart';
-import 'package:app_grok_vending/utils/constants.dart';
-import 'package:app_grok_vending/main.dart';
 
 class PayNfcScreen extends StatefulWidget {
   const PayNfcScreen({super.key});
@@ -12,133 +9,157 @@ class PayNfcScreen extends StatefulWidget {
 }
 
 class _PayNfcScreenState extends State<PayNfcScreen> {
-  bool _isPaying = false;
-  String _statusMessage = '';
-  final double _paymentAmount = 2.50; // Valor fictício do produto
+  bool _isScanning = false;
+  String _statusMessage = 'Pronto para pagar';
 
   Future<void> _startNfcPayment() async {
-    final appState = Provider.of<AppState>(context, listen: false);
-
-    // Verificações básicas
-    if (appState.cardId.isEmpty) {
-      setState(() {
-        _statusMessage = 'Primeiro adiciona o teu cartão NFC na aba "Cartão".';
-      });
-      return;
-    }
-
-    if (appState.balance < _paymentAmount) {
-      setState(() {
-        _statusMessage = 'Saldo insuficiente para pagar ${_paymentAmount.toStringAsFixed(2)} €.';
-      });
-      return;
-    }
-
     setState(() {
-      _isPaying = true;
-      _statusMessage = 'Aproxime o telemóvel da máquina (PN532)...';
+      _isScanning = true;
+      _statusMessage = 'A aguardar contacto com o leitor NFC da máquina...';
     });
 
     try {
-      // Inicia sessão NFC – o PN532 deteta o telemóvel como tag
-      await FlutterNfcKit.poll(
-        timeout: const Duration(seconds: 30),
+      // Verifica se o dispositivo suporta NFC
+      bool isAvailable = await FlutterNfcKit.nfcAvailability == NFCAvailability.available;
+      if (!isAvailable) {
+        setState(() {
+          _isScanning = false;
+          _statusMessage = 'NFC não disponível neste dispositivo';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('NFC não suportado ou desativado no teu telemóvel')),
+        );
+        return;
+      }
+
+      // Inicia leitura NFC
+      var tag = await FlutterNfcKit.poll(
+        timeout: Duration(seconds: 30),
+        iosMultipleTagMessage: "Múltiplas tags detetadas, aproxime apenas uma",
+        iosAlertMessage: "Aproxime o telemóvel ao leitor NFC",
       );
 
-      // Dados que o PN532 vai poder ler (se configurado para detetar tag)
-      String payload = '${appState.cardId}|${_paymentAmount.toStringAsFixed(2)}';
+      // Tag lido com sucesso
+      setState(() {
+        _statusMessage = 'Leitura NFC detetada! Pagamento enviado...';
+      });
 
-      // Debita o saldo na app (simulação de sucesso – o PN532 detetou)
-      appState.subtractBalance(_paymentAmount);
+      // Aqui envias os dados para a máquina/DB (ajusta com o teu fluxo real)
+      // Exemplo simples (podes usar Firebase para notificar a máquina):
+      // final user = FirebaseAuth.instance.currentUser;
+      // if (user != null) {
+      //   await FirebaseDatabase.instance.ref('pagamentos/${user.uid}').push().set({
+      //     'valor': totalDoCarrinho, // tens de ter isso no AppState
+      //     'itens': carrinho.map((item) => item.nome).toList(),
+      //     'timestamp': DateTime.now().toIso8601String(),
+      //     'nfcTagData': tag.toString(),
+      //   });
+      // }
+
+      // Mostra sucesso
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pagamento NFC realizado com sucesso!')),
+      );
+
+      // Para a sessão NFC
+      await FlutterNfcKit.finish();
 
       setState(() {
-        _statusMessage = 'Pagamento enviado com sucesso!\n' 'Débitado: ${_paymentAmount.toStringAsFixed(2)} €\n' +
-            'Saldo atual: ${appState.balance.toStringAsFixed(2)} €\n' +
-            'Dados enviados (para o PN532): $payload';
+        _isScanning = false;
+        _statusMessage = 'Pagamento concluído!';
+      });
+
+      // Volta automaticamente para a tela de saldo/produtos após 3 segundos
+      Future.delayed(const Duration(seconds: 3), () {
+        Navigator.pop(context); // Volta para HomeScreen (saldo/produtos)
       });
     } catch (e) {
       setState(() {
-        _statusMessage = 'Erro ao aproximar: $e\nTenta de novo ou verifica o NFC ativado.';
+        _isScanning = false;
+        _statusMessage = 'Erro na leitura NFC';
       });
-    } finally {
-      await FlutterNfcKit.finish(); // Sempre fecha a sessão
-      setState(() {
-        _isPaying = false;
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro NFC: $e')),
+      );
+      await FlutterNfcKit.finish();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context);
-    final bool canPay = appState.cardId.isNotEmpty && appState.balance >= _paymentAmount;
-
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
+      appBar: AppBar(
+        title: const Text('Pagamento NFC'),
+        centerTitle: true,
+        backgroundColor: Colors.blue[800],
+        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.black87, Colors.blueGrey[900]!],
+          ),
+        ),
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.nfc_rounded,
-                size: 120,
-                color: canPay ? AppColors.success : AppColors.primary,
+              // Ícone NFC grande e estático (sem animação de expansão)
+              const Icon(
+                Icons.nfc,
+                size: 180,
+                color: Colors.cyan,
               ),
               const SizedBox(height: 40),
 
+              // Título principal (centrado e formatado)
               const Text(
-                'Pagamento Contactless',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                'Pagamento NFC Contactless',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-              if (appState.cardId.isNotEmpty)
-                Text(
-                  'Cartão: ${appState.cardId}',
-                  style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
-                ),
-              const SizedBox(height: 8),
-
-              Text(
-                'Saldo: ${appState.balance.toStringAsFixed(2)} €',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: canPay ? AppColors.success : AppColors.error,
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              Text(
-                'Valor do produto: ${_paymentAmount.toStringAsFixed(2)} €',
-                style: const TextStyle(fontSize: 18),
-              ),
-              const SizedBox(height: 40),
-
-              ElevatedButton.icon(
-                onPressed: _isPaying || !canPay ? null : _startNfcPayment,
-                icon: const Icon(Icons.touch_app, size: 32),
-                label: Text(
-                  _isPaying ? 'A pagar...' : 'Pagar NFC',
-                  style: const TextStyle(fontSize: 20),
-                ),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              if (_statusMessage.isNotEmpty)
-                Text(
-                  _statusMessage,
+              // Instrução clara e bem centrada
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                child: Text(
+                  _isScanning
+                      ? _statusMessage
+                      : 'Encoste o telemóvel ao leitor NFC da máquina para pagar',
                   style: TextStyle(
-                    fontSize: 16,
-                    color: _statusMessage.contains('sucesso') ? AppColors.success : AppColors.error,
+                    fontSize: 20,
+                    color: _isScanning ? Colors.cyan : Colors.white70,
+                    height: 1.4,
                   ),
                   textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 48),
+
+              // Botão único: Iniciar Pagamento NFC
+              if (!_isScanning)
+                ElevatedButton.icon(
+                  onPressed: _startNfcPayment,
+                  icon: const Icon(Icons.nfc, size: 28),
+                  label: const Text(
+                    'Pagar com NFC',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyan[600],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 8,
+                  ),
                 ),
             ],
           ),

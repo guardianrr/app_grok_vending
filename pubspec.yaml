@@ -10,8 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
 
+
+    
   # Fontes modernas e futuristas
   google_fonts: ^6.2.1
+  google_sign_in: ^6.2.1
 
   # NFC e QR
   flutter_nfc_kit: ^3.5.1
@@ -26,6 +29,7 @@ dependencies:
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.4
+  shared_preferences: ^2.3.2
 
   # Ícones
   cupertino_icons: ^1.0.8
@@ -43,10 +47,7 @@ dev_dependencies:
   flutter_lints: ^4.0.0
 
 flutter:
-  uses-material-design: true
-
 assets:
-    - assets/images/products/sandes_mista.png
-    - assets/images/products/kitkat.png
-    - assets/images/products/agua_50cl.png
-    - assets/images/products/ice_tea.png
+    - assets/images/products/
+
+    
